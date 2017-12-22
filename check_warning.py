@@ -36,8 +36,8 @@ class WarningLog(Log):
 
 
 class XcodeBuildData(object):
-    def __init__(self, buildRootPath):
-        self.rootPath = buildRootPath
+    def __init__(self, buildRoot):
+        self.rootPath = os.path.dirname(os.path.dirname(buildRoot))
         self.warningPath = os.path.join(self.rootPath, "Logs/Issues")
 
         # find all warning log path
@@ -82,9 +82,10 @@ def writeResultToPath(path, passed):
 
     if not os.path.exists(path):
         dir = os.path.dirname(path)
-        os.makedirs(dir)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
 
-    f = open(path, "w")
+    f = open(path, "w+")
     content = "PASS" if passed else "NOT PASS"
     content += "\n"
     content += str(time.ctime())
