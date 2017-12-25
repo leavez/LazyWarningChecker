@@ -116,7 +116,7 @@ class Checker(object):
 
         @staticmethod
         def checkAll():
-            rule = Rule({"type": "all"})
+            rule = Checker.Rule({"type": "all"})
             return rule
 
 
