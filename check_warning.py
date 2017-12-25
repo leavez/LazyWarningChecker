@@ -153,12 +153,12 @@ class Checker(object):
 
 
 class Config(object):
-    def __init__(self):
+    def __init__(self, configFilePath):
         self.rules = []
         self.exclusiveRules = []
         self.showNonPassWarning = ""
 
-        self.config = self.getConfig()
+        self.config = self.getConfig(configFilePath) or {}
 
         # rules
         rulesConfig = self.config.get("rules")
@@ -173,23 +173,44 @@ class Config(object):
             self.exclusiveRules = map(lambda json: Checker.Rule(json), rulesConfig)
 
         # show_non_pass_warning
-        self.showNonPassWarning = self.config.get("show_non_pass_warning", "first")
+        self.showNonPassWarning = self.config.get("show_non_pass_warning", "all")
+
+    # demo config
+    # --------------
+    # 
+    # "show_non_pass_warning": "all", # all, first
+    # # default is all
+    # "rules": [ 
+    #     # { "type" : "regex", "content": "MWDataModel.m" },
+    #     # { "type" : "flag", "content": "-Wunused-variable" },
+    #     # { "type" : "flag", "content": "-W#warnings" },
+    # ],
+    # "exclusive_rules": [
+    #     { "type": "flag", "content": "-Wnullability-completeness"},
+    # ],
+    #
+    # ---------------
+    def getConfig(self, configFilePath):
+        if not configFilePath:
+            return {}
+        try:
+            f = open(configFilePath, "r")
+            config = f.read()
+            json = json.loads(config)
+            return json
+        except IOError:
+            print "connot open config file: %s" % configFilePath
+            exit(1)
+        except ValueError:
+            print "config file is not a valid json: %s" % configFilePath
+            exit(1)
+        except:
+            print "config is invalid: %s" % configFilePath
+            exit(1)
 
 
 
-    def getConfig(self):
 
-        return {
-            "show_non_pass_warning": "all", # all, first
-            "rules": [ # default is all
-                # { "type" : "regex", "content": "MWDataModel.m" },
-                { "type" : "flag", "content": "-Wunused-variable" },
-                # { "type" : "flag", "content": "-W#warnings" },
-            ],
-            # "exclusive_rules": [
-            #     { "type": "flag", "content": "-Wnullability-completeness"},
-            # ],
-        }
 
 
 class Output(object):
@@ -238,8 +259,8 @@ def getArguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("BuildPath" ,help="the build path of xcode, use the value of $BUILD_ROOT of building")
     parser.add_argument("-o", help="write the result to path")
+    parser.add_argument("-c", "--config", help = "the path of configuration file.")
     args = parser.parse_args()
-    # get argv
     return args
 
 
@@ -251,8 +272,9 @@ def getArguments():
 if __name__ == "__main__":
     args = getArguments()
     build = XcodeBuildData(args.BuildPath)
+    config = Config(args.config)
 
-    checker = Checker(Config())
+    checker = Checker(config)
 
     def checkWarningExisted():
         warnings = []
