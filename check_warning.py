@@ -127,13 +127,15 @@ class Checker(object):
 
 
     def haveWarning(self, log):
-        # return Bool
+        # return [WarningLine], [] means have no warnings
+        hitLines = []
         for rule in self.rules:
             for line in log.parsedLines:
                 line.parseIfNeeded()
                 if rule.hit(line):
-                    return True
-        return False
+                    hitLines.append(line)
+                    return hitLines
+        return []
 
 
 
@@ -182,15 +184,22 @@ class Config(object):
 class Output(object):
     def __init__(self):
         self.path = None
-        self.haveWarning = False
+        self.warningLines = [] # [WarningLine]
         self.xcodeBuildData = None
 
     def result(self):
         r = {
             "date": str(time.ctime()),
-            "have_warning": self.haveWarning,
+            "have_warning": len(self.warningLines) > 0,
             "build_path" : self.xcodeBuildData.rootPath,
         }
+        if len(self.warningLines) > 0:
+            line = self.warningLines[0]
+            reason = line.fileName + line.lineNumber + "  " + line.reason
+            if len(line.flag) > 0 :
+                reason += ("[" + line.flag + "]")
+            r["reason"] = reason
+            
         return json.dumps(r,indent=4)
 
     def writeResult(self):
@@ -226,16 +235,16 @@ if __name__ == "__main__":
 
     checker = Checker(Config())
 
-    def doesPass():
+    def checkWarningExisted():
         for log in build.warningLogs:
             log.parse()
-            if checker.haveWarning(log):
-                return False
-        return True
-    passed = doesPass()
+            result = checker.haveWarning(log)
+            if result:
+                return result
+        return []
 
     output = Output()
-    output.haveWarning = not passed
+    output.warningLines = checkWarningExisted()
     output.xcodeBuildData = build
     print output.result()
 
