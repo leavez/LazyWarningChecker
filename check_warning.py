@@ -195,8 +195,8 @@ class Config(object):
         try:
             f = open(configFilePath, "r")
             config = f.read()
-            json = json.loads(config)
-            return json
+            jsonObject = json.loads(config)
+            return jsonObject
         except IOError:
             print "connot open config file: %s" % configFilePath
             exit(1)
