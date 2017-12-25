@@ -125,6 +125,10 @@ class Checker(object):
         self.rules = config.rules or []
         self.exclusiveRules = config.exclusiveRules or []
 
+        # Just return when have first matched
+        # this could speed up the process of checking
+        self.returnWhenFistHit = config.showNonPassWarning == "first" 
+
 
     def haveWarning(self, log):
         # return [WarningLine], [] means have no warnings
@@ -134,8 +138,9 @@ class Checker(object):
                 line.parseIfNeeded()
                 if rule.hit(line):
                     hitLines.append(line)
-                    return hitLines
-        return []
+                    if self.returnWhenFistHit:
+                        return hitLines
+        return hitLines
 
 
 
@@ -144,6 +149,7 @@ class Config(object):
     def __init__(self):
         self.rules = []
         self.exclusiveRules = []
+        self.showNonPassWarning = ""
 
         self.config = self.getConfig()
 
@@ -159,25 +165,23 @@ class Config(object):
         if rulesConfig:
             self.exclusiveRules = map(lambda json: Checker.Rule(json), rulesConfig)
 
-        # TODO
-        # show_warning_count
         # show_non_pass_warning
+        self.showNonPassWarning = self.config.get("show_non_pass_warning", "first")
+
 
 
     def getConfig(self):
 
         return {
-            "show_warning_count": True,
-            "show_non_pass_warning": "first", # all, first, none
+            "show_non_pass_warning": "all", # all, first
             "rules": [ # default is all
+                # { "type" : "regex", "content": "MWDataModel.m" },
                 { "type" : "flag", "content": "-Wunused-variable" },
-                # { "type" : "regex", "content": "" },
-                # { "type" : "regex", "content": "" },
-                # { "type" : "regex", "content": "" },
+                # { "type" : "flag", "content": "-W#warnings" },
             ],
-            "exclusive_rules": [
-                { "type": "flag", "content": "-Wnullability-completeness"},
-            ],
+            # "exclusive_rules": [
+            #     { "type": "flag", "content": "-Wnullability-completeness"},
+            # ],
         }
 
 
@@ -186,6 +190,7 @@ class Output(object):
         self.path = None
         self.warningLines = [] # [WarningLine]
         self.xcodeBuildData = None
+        self.shouldShowCount = False
 
     def result(self):
         r = {
@@ -195,10 +200,17 @@ class Output(object):
         }
         if len(self.warningLines) > 0:
             line = self.warningLines[0]
-            reason = line.fileName + line.lineNumber + "  " + line.reason
-            if len(line.flag) > 0 :
-                reason += ("[" + line.flag + "]")
-            r["reason"] = reason
+            def lineToText(line):
+                reason = line.fileName + line.lineNumber + "  " + line.reason
+                if len(line.flag) > 0 :
+                    reason += ("[" + line.flag + "]")
+                return reason
+
+            reasons = map(lineToText, self.warningLines)
+            r["reason"] = reasons
+
+        if self.shouldShowCount:
+            r["matched_count"] = len(self.warningLines)
             
         return json.dumps(r,indent=4)
 
@@ -236,16 +248,19 @@ if __name__ == "__main__":
     checker = Checker(Config())
 
     def checkWarningExisted():
+        warnings = []
         for log in build.warningLogs:
             log.parse()
             result = checker.haveWarning(log)
-            if result:
-                return result
-        return []
+            warnings.extend(result)
+            if len(warnings) > 0 and checker.returnWhenFistHit:
+                return warnings
+        return warnings
 
     output = Output()
     output.warningLines = checkWarningExisted()
     output.xcodeBuildData = build
+    output.shouldShowCount = not checker.returnWhenFistHit
     print output.result()
 
     outPath = args.o
