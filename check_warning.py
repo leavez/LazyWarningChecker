@@ -227,8 +227,8 @@ if __name__ == "__main__":
         for log in build.warningLogs:
             log.parse()
             if checker.haveWarning(log):
-                passed = False
-        passed = True
+                return False
+        return True
     passed = doesPass()
 
     output = Output()
