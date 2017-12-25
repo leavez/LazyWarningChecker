@@ -3,7 +3,7 @@
 
 import os, subprocess, gzip, re
 import argparse
-import time
+import time, json
 
 ## represent a log file
 class Log(object):
@@ -70,32 +70,49 @@ class Checker(object):
         return False
 
 
+class Output(object):
+    def __init__(self):
+        self.path = None
+        self.haveWarning = False
+        self.xcodeBuildData = None
+
+    def result(self):
+        r = {
+            "date": str(time.ctime()),
+            "have_warning": self.haveWarning,
+            "build_path" : self.xcodeBuildData.rootPath,
+        }
+        return json.dumps(r,indent=4)
+
+    def writeResult(self):
+        path = self.path
+        if not os.path.exists(path):
+            dir = os.path.dirname(path)
+            if not os.path.exists(dir):
+                os.makedirs(dir)
+
+        f = open(self.path, "w+")
+        content = self.result()
+        f.write(content)
+        f.close()
+
 def getArguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("BuildPath" ,help="the build path of xcode, use the value of $BUILD_ROOT of building")
     parser.add_argument("-o", help="write the result to path")
     args = parser.parse_args()
     # get argv
-    return (args.BuildPath, args.o)
+    return args
 
-def writeResultToPath(path, passed):
 
-    if not os.path.exists(path):
-        dir = os.path.dirname(path)
-        if not os.path.exists(dir):
-            os.makedirs(dir)
 
-    f = open(path, "w+")
-    content = "PASS" if passed else "NOT PASS"
-    content += "\n"
-    content += str(time.ctime())
-    f.write(content)
-    f.close()
+
+
 
 
 if __name__ == "__main__":
     args = getArguments()
-    build = XcodeBuildData(args[0])
+    build = XcodeBuildData(args.BuildPath)
 
     checker = Checker()
     checker.addRule(Checker.checkAllWarning)
@@ -108,8 +125,13 @@ if __name__ == "__main__":
         passed = True
     passed = doesPass()
 
-    print( "PASS" if passed else "NOT PASS")
-    outPath = args[1]
+    output = Output()
+    output.haveWarning = not passed
+    output.xcodeBuildData = build
+    print output.result()
+
+    outPath = args.o
     if outPath:
-        writeResultToPath(outPath, passed)
+        output.path = outPath
+        output.writeResult()
     
