@@ -57,6 +57,15 @@ if haveWarnings:
     sys.stderr.write(ret)
     sys.stderr.write("   Please relove the build warnings before committing."+ret)
     sys.stderr.write("   (You should rebuild the project to update the checking result.)"+ret+ret)
+    warning = ""
+    count = result.get("matched_count")
+    if count:
+        warning += "match %s warning(s):" % str(count) + ret
+    reason = result.get("reason", [])
+    if len(reason) > 20:
+        reason = reason[:20]
+    warning += ret.join(reason)
+    sys.stderr.write(warning)
     exit(1)
     """
 
