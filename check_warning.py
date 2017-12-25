@@ -30,6 +30,7 @@ class WarningLog(Log):
     class WarningLine(object):
         def __init__(self, lineText):
             self.parsed = False
+            self.raw = lineText 
             self.filePath = "" # /user/xxx/xxx/
             self.fileName = "" # abc.m
             self.lineNumber = "" # :123:12
@@ -42,7 +43,7 @@ class WarningLog(Log):
                 return
             self.parsed = True
             regex = re.compile(r"(/.+\/)([^\/]+?\.[a-zA-Z]*)(:[0-9]+:[0-9]+)?: warning: (.+)(\[[-a-zA-Z]+\])$")
-            result = regex.match(lineText)
+            result = regex.match(self.raw)
             if result is None:
                 self.brokenLine = True
                 return 
@@ -77,25 +78,102 @@ class XcodeBuildData(object):
         
 
 class Checker(object):
-    def __init__(self):
-        self.rules = [] # list of function ( [string] -> Bool )
 
-    def addRule(self, rule):
-        self.rules.append(rule)
+    class Rule(object):
+        def __init__(self, jsonDict):
+            # all / regex / flag  
+            # for "flag", https://clang.llvm.org/docs/DiagnosticsReference.html
+            self.type = jsonDict.get("type", "")
+            self.content = jsonDict.get("content", "")
+
+            self.regex = None
+            try:
+                self.regex = re.compile(self.content)
+            except:
+                print "regex format is invalide: %s" % self.content
+                exit(1)
+
+        def hit(self, lineObject):
+            # line: a WarningLine object
+            # return bool
+            def all(line):
+                return lineObject != None
+
+            def flag(line):
+                return self.content == line.flag
+
+            def regex(line):
+                return self.regex.search(line.raw) != None
+
+            return {
+                "all" : all,
+                "regex": regex,
+                "flag": flag,
+            }[self.type](lineObject)
+
+        @staticmethod
+        def checkAll():
+            rule = Rule({"type": "all"})
+            return rule
 
 
-    @staticmethod
-    def checkAllWarning(line):
-        # if line is exsited, it's a warning line
-        return line != None
+    def __init__(self, config):
+        # config: Config object
+        self.rules = config.rules or []
+        self.exclusiveRules = config.exclusiveRules or []
+
 
     def haveWarning(self, log):
         # return Bool
         for rule in self.rules:
-            for line in log.lines:
-                if rule(line):
+            for line in log.parsedLines:
+                line.parseIfNeeded()
+                if rule.hit(line):
                     return True
         return False
+
+
+
+
+class Config(object):
+    def __init__(self):
+        self.rules = []
+        self.exclusiveRules = []
+
+        self.config = self.getConfig()
+
+        # rules
+        rulesConfig = self.config.get("rules")
+        if rulesConfig == None:
+            self.rules.append(Checker.Rule.checkAll())
+        else:
+            self.rules = map(lambda json: Checker.Rule(json), rulesConfig)
+
+        # exclusive rules
+        rulesConfig = self.config.get("exclusive_rules")
+        if rulesConfig:
+            self.exclusiveRules = map(lambda json: Checker.Rule(json), rulesConfig)
+
+        # TODO
+        # show_warning_count
+        # show_non_pass_warning
+
+
+    def getConfig(self):
+
+        return {
+            "show_warning_count": True,
+            "show_non_pass_warning": "first", # all, first, none
+            "rules": [ # default is all
+                { "type" : "flag", "content": "-Wunused-variable" },
+                # { "type" : "regex", "content": "" },
+                # { "type" : "regex", "content": "" },
+                # { "type" : "regex", "content": "" },
+            ],
+            "exclusive_rules": [
+                { "type": "flag", "content": "-Wnullability-completeness"},
+            ],
+        }
 
 
 class Output(object):
@@ -124,6 +202,7 @@ class Output(object):
         f.write(content)
         f.close()
 
+
 def getArguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("BuildPath" ,help="the build path of xcode, use the value of $BUILD_ROOT of building")
@@ -142,8 +221,7 @@ if __name__ == "__main__":
     args = getArguments()
     build = XcodeBuildData(args.BuildPath)
 
-    checker = Checker()
-    checker.addRule(Checker.checkAllWarning)
+    checker = Checker(Config())
 
     def doesPass():
         for log in build.warningLogs:
