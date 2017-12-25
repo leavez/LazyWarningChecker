@@ -10,6 +10,7 @@ class Log(object):
     def __init__(self, filePath):
         self.path = filePath
         self.lines = None
+        self.parsedLines = None
     
     def getLinesOfXCLog(self, path):
         # return [string]
@@ -25,10 +26,37 @@ class Log(object):
 
 class WarningLog(Log):
 
+    # parsed log object
+    class WarningLine(object):
+        def __init__(self, lineText):
+            self.parsed = False
+            self.filePath = "" # /user/xxx/xxx/
+            self.fileName = "" # abc.m
+            self.lineNumber = "" # :123:12
+            self.reason = "" # class AAA does not conform to protocol BBB
+            self.flag = "" # -Wprotocol
+            self.brokenLine = False # the text cannot match our regex. In this situation, all other properies are meaningles.
+
+        def parseIfNeeded(self):
+            if self.parsed:
+                return
+            self.parsed = True
+            regex = re.compile(r"(/.+\/)([^\/]+?\.[a-zA-Z]*)(:[0-9]+:[0-9]+)?: warning: (.+)(\[[-a-zA-Z]+\])$")
+            result = regex.match(lineText)
+            if result is None:
+                self.brokenLine = True
+                return 
+            self.filePath = result.group(1)
+            self.fileName = result.group(2)
+            self.lineNumber = result.group(3)
+            self.reason = result.group(4)
+            self.flag = result.group(5)
+
     # override 
     def parse(self):
         super(WarningLog, self).parse()
         self.lines = self.filterMeaningfulLines(self.lines)
+        self.parsedLines = map(lambda t: WarningLog.WarningLine(t), self.lines)
 
     def filterMeaningfulLines(self, lines):
         return filter(lambda l: ": warning:" in l, lines)
