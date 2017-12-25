@@ -42,16 +42,19 @@ class WarningLog(Log):
             if self.parsed:
                 return
             self.parsed = True
-            regex = re.compile(r"(/.+\/)([^\/]+?\.[a-zA-Z]*)(:[0-9]+:[0-9]+)?: warning: (.+)(\[[-a-zA-Z]+\])$")
-            result = regex.match(self.raw)
+            regex = re.compile(r"(/.+\/)([^\/]+?\.[a-zA-Z]*)(:[0-9]+:[0-9]+)?: warning: (.+?)(\[[-a-zA-Z#]+\])?$")
+            result = regex.search(self.raw)
             if result is None:
                 self.brokenLine = True
+                print "regex cannot match this line:", self.raw
                 return 
             self.filePath = result.group(1)
             self.fileName = result.group(2)
             self.lineNumber = result.group(3)
             self.reason = result.group(4)
             self.flag = result.group(5)
+            if self.flag:
+                self.flag = self.flag.strip("[]")
 
     # override 
     def parse(self):
