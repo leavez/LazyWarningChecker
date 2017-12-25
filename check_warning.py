@@ -132,6 +132,13 @@ class Checker(object):
 
     def haveWarning(self, log):
         # return [WarningLine], [] means have no warnings
+        def filterOutExclusive(lines):
+            # return filtered
+            returnLines = lines
+            for rule in self.exclusiveRules:
+                returnLines = filter(lambda l: not rule.hit(l), lines)
+            return returnLines
+
         hitLines = []
         for rule in self.rules:
             for line in log.parsedLines:
@@ -139,8 +146,8 @@ class Checker(object):
                 if rule.hit(line):
                     hitLines.append(line)
                     if self.returnWhenFistHit:
-                        return hitLines
-        return hitLines
+                        return filterOutExclusive(hitLines)
+        return filterOutExclusive(hitLines)
 
 
 
@@ -202,7 +209,7 @@ class Output(object):
             line = self.warningLines[0]
             def lineToText(line):
                 reason = line.fileName + line.lineNumber + "  " + line.reason
-                if len(line.flag) > 0 :
+                if line.flag is not None and len(line.flag) > 0 :
                     reason += ("[" + line.flag + "]")
                 return reason
 
