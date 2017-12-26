@@ -135,7 +135,7 @@ class Checker(object):
             # return filtered
             returnLines = lines
             for rule in self.exclusiveRules:
-                returnLines = filter(lambda l: not rule.hit(l), lines)
+                returnLines = filter(lambda l: not rule.hit(l), returnLines)
             return returnLines
 
         hitLines = []
