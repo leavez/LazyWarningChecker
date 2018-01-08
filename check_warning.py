@@ -173,6 +173,15 @@ class XcodeBuildData(object):
         self.warningLogFilePaths = warningPaths
         self.warningLogs = map(lambda p: WarningLog(p), self.warningLogFilePaths)
 
+    def getAllWarningLines(self):
+        warnings = []
+        for log in build.warningLogs:
+            log.parse()
+            for l in log.parsedLines:
+                l.parseIfNeeded()
+            warnings.extend(log.parsedLines)
+        return warnings
+
         
 
 class Checker(object):
@@ -373,7 +382,10 @@ class WarningBlameGenerator(object):
             out = subprocess.check_output(command, cwd=warning.filePath )
             author = out.split("\n")[1].split()[1]
             email = out.split("\n")[2].split()[1]
-            return author + " " + email + " -- " + warning.fileName + " " + warning.lineNumber + " " + (warning.flag or "")
+            result = author + " " + email + " -- " + warning.fileName + " " + warning.lineNumber
+            if warning.flag:
+                result += " [%s]" % warning.flag
+            return result
         except:
             return "[Blame Failed] " + (warning.raw)
 
@@ -407,16 +419,7 @@ if __name__ == "__main__":
 
     if args.blame:
         # just print blame
-        def getAllLines():
-            warnings = []
-            for log in build.warningLogs:
-                log.parse()
-                for l in log.parsedLines:
-                    l.parseIfNeeded()
-                warnings.extend(log.parsedLines)
-            return warnings
-
-        allWarnings = getAllLines()
+        allWarnings = build.getAllWarningLines()
         WarningBlameGenerator(allWarnings).generateBlame()
     
     else:
