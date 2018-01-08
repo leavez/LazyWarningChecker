@@ -322,11 +322,10 @@ class Output(object):
             "build_path" : self.xcodeBuildData.rootPath,
         }
         if len(self.warningLines) > 0:
-            line = self.warningLines[0]
             def lineToText(line):
-                if line.isBrokenLine:
+                if not line.isACompileWarning:
                     return line.raw
-                reason = (line.fileName or "") + (line.lineNumber or "") + "  " + (line.reason or "")
+                reason = (line.fileName or "") + (line.lineNumber or "") + " -- " + (line.reason or "")
                 if line.flag is not None and len(line.flag) > 0 :
                     reason += ("[" + line.flag + "]")
                 return reason
