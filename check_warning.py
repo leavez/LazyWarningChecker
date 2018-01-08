@@ -393,8 +393,11 @@ class WarningBlameGenerator(object):
         
         blames = map(lambda l: self.convertToBlame(l), self.warnings)
         blames.sort()
-        for b in blames:
+        for b in filter(lambda l : l.startswith("[Blame Failed]") , blames):
             print b
+        for b in filter(lambda l : not l.startswith("[Blame Failed]") , blames):
+            print b
+        print "--- Done. %d blame(s) ---" % len(blames)
 
 
 def getArguments():
