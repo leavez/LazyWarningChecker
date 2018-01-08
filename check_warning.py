@@ -320,6 +320,7 @@ class Output(object):
             "date": str(time.ctime()),
             "have_warning": len(self.warningLines) > 0,
             "build_path" : self.xcodeBuildData.rootPath,
+            "issue_path": self.xcodeBuildData.warningPath,
         }
         if len(self.warningLines) > 0:
             def lineToText(line):
