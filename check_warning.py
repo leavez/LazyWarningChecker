@@ -7,6 +7,61 @@ import time, json
 
 ## represent a log file
 class Log(object):
+
+    # SLF0 is the format of xcactivitylog file
+    class SLF0_Parser(object):
+        TOKEN_INT            = '#'
+        TOKEN_CLASS_NAME     = '%'
+        TOKEN_CLASS_NAME_REF = '@'
+        TOKEN_STRING         = '"'
+        TOKEN_DOUBLE         = '^'
+        OBJECT_LIST_NIL      = '-'
+        OBJECT_LIST          = '('   
+        symbols = set([TOKEN_INT, TOKEN_CLASS_NAME, TOKEN_CLASS_NAME_REF, TOKEN_STRING, TOKEN_DOUBLE, OBJECT_LIST_NIL, OBJECT_LIST])
+        # reference https://github.com/americanexpress/xcode-result-bundle-processor/blob/bc91947f33db322a790895ecea9309aea7e6af55/lib/xcoderesultbundleprocessor/slf0/tokenizer.rb
+
+        def __init__(self, io, onlyCareSymbol=None):
+            if not self.isValidSLF0(io):
+                raise Exception("Input is not a valid SLF0 format file", io)
+            self.tokens = []
+            while True:
+                c = self.readAToken(io)
+                if not c:
+                    break
+                self.tokens.append(c)
+            pass
+
+        def isValidSLF0(self, io):
+            if io is None:
+                return False 
+            return io.read(4) == 'SLF0'
+
+        @classmethod
+        def readAToken(self, io):
+            numberString = ""
+            while True:
+                c = io.read(1)
+                if len(c) == 0 or c in self.symbols:
+                    break
+                numberString += c
+
+            content = ""
+            if c in [self.TOKEN_STRING, self.TOKEN_CLASS_NAME]:
+                content = io.read(int(numberString))
+            elif c in [self.TOKEN_INT, self.TOKEN_DOUBLE, self.OBJECT_LIST, self.TOKEN_CLASS_NAME_REF]:
+                content = numberString
+            else:
+                content = ""
+            
+            if c == self.TOKEN_STRING:
+                content = content.replace("\r", "\n")
+                    
+            if not c:
+                return None
+            else:
+                return (content, c)
+
+
     def __init__(self, filePath):
         self.path = filePath
         self.lines = None
