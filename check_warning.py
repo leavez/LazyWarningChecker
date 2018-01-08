@@ -85,32 +85,71 @@ class WarningLog(Log):
 
     # parsed log object
     class WarningLine(object):
+        
+        # regex to match warning line
+        class Matcher:
+            # $1 = file_path
+            # $2 = file_name
+            # $3 = line number
+            # $4 = reason
+            # $5 = compiler flag
+            COMPILE_WARNING = re.compile(r"^(\/?.+\/)(.*)(:.*:.*):\swarning:\s(.*)(\[[-a-zA-Z#]+\])?$")
+
+            # $1 = ld prefix
+            # $2 = warning message
+            LD_WARNING_MATCHER = re.compile(r"^(ld: )warning: (.*)$")
+
+            # @regex Captured groups
+            # $1 = whole warning
+            GENERIC_WARNING_MATCHER = re.compile(r"warning:\s(.*)$")
+
+            # # @regex Captured groups
+            # # $1 = whole warning
+            # WILL_NOT_BE_CODE_SIGNED_MATCHER = re.compile(r"^(.* will not be code signed because .*)$")
+            
         def __init__(self, lineText):
             self.parsed = False
             self.raw = lineText 
+            self.isBrokenLine = False # the text cannot match our regex.
+            self.isACompileWarning = False 
+            
+            # these properies ara only have valid value when self.isACompileWarning == True
             self.filePath = "" # /user/xxx/xxx/
             self.fileName = "" # abc.m
             self.lineNumber = "" # :123:12
             self.reason = "" # class AAA does not conform to protocol BBB
             self.flag = "" # -Wprotocol
-            self.brokenLine = False # the text cannot match our regex. In this situation, all other properies are meaningles.
 
         def parseIfNeeded(self):
             if self.parsed:
                 return
             self.parsed = True
-            regex = re.compile(r"(\/.+\/)([^\/]+?\.[a-zA-Z]*)(:[0-9]+:[0-9]+)?: warning: (.+?)(\[[-a-zA-Z#]+\])?$")
-            result = regex.search(self.raw)
-            if result is None:
-                self.brokenLine = True
-                return 
-            self.filePath = result.group(1)
-            self.fileName = result.group(2)
-            self.lineNumber = result.group(3)
-            self.reason = result.group(4)
-            self.flag = result.group(5)
-            if self.flag:
-                self.flag = self.flag.strip("[]")
+
+            MacherClass = WarningLog.WarningLine.Matcher
+            result = MacherClass.COMPILE_WARNING.search(self.raw)
+            if result:
+                self.filePath = result.group(1)
+                self.fileName = result.group(2)
+                self.lineNumber = result.group(3)
+                self.reason = result.group(4)
+                self.flag = (result.group(5) or "").strip("[]")
+                self.isACompileWarning = True
+                return
+
+            result = MacherClass.LD_WARNING_MATCHER.search(self.raw)
+            if result:
+                self.reason = result.group(0)
+                return
+
+            result = MacherClass.GENERIC_WARNING_MATCHER.search(self.raw)
+            if result:
+                self.reason = result.group(0)
+                return
+
+            # non-mached line
+            self.isBrokenLine = True
+            return
+            
 
     # override 
     def parse(self):
@@ -285,7 +324,7 @@ class Output(object):
         if len(self.warningLines) > 0:
             line = self.warningLines[0]
             def lineToText(line):
-                if line.brokenLine:
+                if line.isBrokenLine:
                     return line.raw
                 reason = (line.fileName or "") + (line.lineNumber or "") + "  " + (line.reason or "")
                 if line.flag is not None and len(line.flag) > 0 :
