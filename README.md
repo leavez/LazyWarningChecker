@@ -5,8 +5,8 @@ A configurable warning checking script for Xcode project.
 ## What
 LazyWarningChecker is:
 - a script that print matched warnings from Xcode's build log.
-
-- also a solution that moves the "Treat Warnings as Errors" feature to commit time, with configurable rules, without blocking debugging.
+- a solution that moves the "Treat Warnings as Errors" feature to commit time, with configurable rules, without blocking debugging.
+- also a tool to generate a blame report of warnings.
 
 #### Why "Treat Warnings as Errors"?
 
@@ -22,8 +22,10 @@ So we move the checking to commit time, and get both strict warning checking and
 
 Furthermore, the script provides a way to set checking rules, compared to prohibit all warning. You could only check several rules, or exclude some files.
 
+Also, the script provides a functionality of generating a blame report for warning lines. 
+
 ## Usage 
-### setup steps 
+### setup steps for moving "Treat Warnings as Errors" to commit time
 1. Copy the 2 script files to your project directory 
 
 2. Add below to the build [Post-Action](https://i.stack.imgur.com/ft4Dw.png) of your scheme (remember to replace the path). And set `Provide build setting from` to your target. 
@@ -42,6 +44,12 @@ Done! Now you could get a commit time warning checking.
 NOTE: if a pre-commit hook already existed,  you should add the hook manually. The hook content could be got from `python add_pre_commit_hook.py raw`
 
 NOTE: Depend on how it works, the script cannot 100% guarantee excludes the warning line from committing. The checking result is only refreshed when build finished. So any change after building cannot be checked by this script. But it’s enough for most using cases.
+
+### generate blame report
+
+```shell
+python check_warning.py --blame path/to/issues_log # the path is the content of $BUILD_ROOT, you can the log_path in .warning_checker/last_result
+```
 
 ### files
 `check_warning.py`  the main script for checking warnings
