@@ -70,10 +70,12 @@ class Log(object):
     def getLinesOfXCLog(self, path):
         # return [string]
         f = gzip.open(path, mode="rb")
-        content = f.readlines()
-        content = reduce(lambda initial, line: initial + line.split("\r") , content, [])
+        tokens = Log.SLF0_Parser(f).tokens
         f.close()
-        return content
+        tokens = filter(lambda t: t[1] == Log.SLF0_Parser.TOKEN_STRING and "warning:" in t[0], tokens)
+        texts = map(lambda t: t[0], tokens)
+        lines = reduce(lambda initial, t: initial + t.split("\n"), texts, [])
+        return lines
 
     def parse(self):
         self.lines = self.getLinesOfXCLog(self.path)
@@ -117,7 +119,7 @@ class WarningLog(Log):
         self.parsedLines = map(lambda t: WarningLog.WarningLine(t), self.lines)
 
     def filterMeaningfulLines(self, lines):
-        return filter(lambda l: ": warning:" in l, lines)
+        return filter(lambda l: "warning:" in l, lines)
 
 
 
