@@ -93,7 +93,7 @@ class WarningLog(Log):
             # $3 = line number
             # $4 = reason
             # $5 = compiler flag
-            COMPILE_WARNING = re.compile(r"^(\/?.+\/)(.*)(:.*:.*):\swarning:\s(.*)(\[[-a-zA-Z#]+\])?$")
+            COMPILE_WARNING = re.compile(r"^(\/?.+\/)(.*)(:.*:.*):\swarning:\s(.*?)(\[[-a-zA-Z#]+\])?$")
 
             # $1 = ld prefix
             # $2 = warning message
