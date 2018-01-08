@@ -350,12 +350,46 @@ class Output(object):
         f.write(content)
         f.close()
 
+# generate the blame report of warnings
+# ` WarningBlameGenerator(warningLines).generateBlame()`
+class WarningBlameGenerator(object):
+    
+    def __init__(self, warningLines):
+        self.warnings = warningLines
+
+    def convertToBlame(self, warning):
+        # parameter warning: `WarningLine` object
+        try:
+            if not warning.isACompileWarning:
+                raise Exception()
+        
+            lineNumber = warning.lineNumber.split(":")[1]
+            path = warning.filePath
+            path += warning.fileName
+
+            cdCommand = ["cd", warning.filePath, ";"]
+            command = ["git", "blame", "-L%s,+1" % lineNumber, path, "-p"]
+            out = subprocess.check_output(command, cwd=warning.filePath )
+            author = out.split("\n")[1].split()[1]
+            email = out.split("\n")[2].split()[1]
+            return author + " " + email + " -- " + warning.fileName + " " + warning.lineNumber + " " + (warning.flag or "")
+        except:
+            return "[Blame Failed] " + (warning.raw)
+
+    def generateBlame(self):
+        
+        blames = map(lambda l: self.convertToBlame(l), self.warnings)
+        blames.sort()
+        for b in blames:
+            print b
+
 
 def getArguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("BuildPath" ,help="the build path of xcode, use the value of $BUILD_ROOT of building")
     parser.add_argument("-o", help="write the result to path")
-    parser.add_argument("-c", "--config", help = "the path of configuration file.")
+    parser.add_argument("-c", "--config", help="the path of configuration file.")
+    parser.add_argument("-b", "--blame", action="store_true", help="generate blame for warnings" )
     args = parser.parse_args()
     return args
 
@@ -370,26 +404,41 @@ if __name__ == "__main__":
     build = XcodeBuildData(args.BuildPath)
     config = Config(args.config)
 
-    checker = Checker(config)
+    if args.blame:
+        # just print blame
+        def getAllLines():
+            warnings = []
+            for log in build.warningLogs:
+                log.parse()
+                for l in log.parsedLines:
+                    l.parseIfNeeded()
+                warnings.extend(log.parsedLines)
+            return warnings
 
-    def checkWarningExisted():
-        warnings = []
-        for log in build.warningLogs:
-            log.parse()
-            result = checker.haveWarning(log)
-            warnings.extend(result)
-            if len(warnings) > 0 and checker.returnWhenFistHit:
-                return warnings
-        return warnings
+        allWarnings = getAllLines()
+        WarningBlameGenerator(allWarnings).generateBlame()
+    
+    else:
+        # check 
+        checker = Checker(config)
+        def checkWarningExisted():
+            warnings = []
+            for log in build.warningLogs:
+                log.parse()
+                result = checker.haveWarning(log)
+                warnings.extend(result)
+                if len(warnings) > 0 and checker.returnWhenFistHit:
+                    return warnings
+            return warnings
 
-    output = Output()
-    output.warningLines = checkWarningExisted()
-    output.xcodeBuildData = build
-    output.shouldShowCount = not checker.returnWhenFistHit
-    print output.result()
+        output = Output()
+        output.warningLines = checkWarningExisted()
+        output.xcodeBuildData = build
+        output.shouldShowCount = not checker.returnWhenFistHit
+        print output.result()
 
-    outPath = args.o
-    if outPath:
-        output.path = outPath
-        output.writeResult()
+        outPath = args.o
+        if outPath:
+            output.path = outPath
+            output.writeResult()
     
